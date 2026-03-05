@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galaxy Memory</title>
+    <style>
+        /* ==========================================
+           PENGATURAN CSS UTAMA
+           ========================================== */
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            user-select: none;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 15%;
+            width: 100%;
+            text-align: center;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        #ui-overlay h1 {
+            font-size: 2rem;
+            font-weight: 400;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 20px rgba(255, 0, 0, 0.5);
+            margin: 0;
+        }
+
+        #loading-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #050510;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 1s ease;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 0, 0, 0.3);
+            border-top-color: #ff0033;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin { 
+            to { transform: rotate(360deg); } 
+        }
+
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            text-align: center;
+            z-index: 10;
+            pointer-events: none;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loading-screen">
+        <div class="spinner"></div>
+        <div id="loading-text">Mempersiapkan Kenangan... 0%</div>
+    </div>
+
+    <div id="ui-overlay">
+        <h1>Only For U, Ayu Anita Purnama</h1>
+    </div>
+
+    <div id="instructions">
+        Geser untuk memutar | Scroll untuk Zoom in/out melihat foto lebih dekat
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <!-- 
+    ========================================================================
+    UNTUK PROJECT LOKAL ANDA:
+    Hapus seluruh tag <script> di bawah ini, lalu panggil file JS Anda dengan:
+    <script type="module" src="/assets/js/system.js"></script>
+    ======================================================================== 
+    -->
+    <script type="module">
+        /* ========================================================================
+        ISI DARI FILE: /assets/js/system.js
+        (Pindahkan semua baris dari sini ke bawah ke dalam file system.js Anda)
+        ========================================================================
+        */
+        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js';
+        import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/controls/OrbitControls.js';
+
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x000000, 0.003); 
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 30, 200);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 5;   
+        controls.maxDistance = 500; 
+
+        // Pembuatan Partikel Bintang
+        function createParticleTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 32;
+            canvas.height = 32;
+            const ctx = canvas.getContext('2d');
+            const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+            gradient.addColorStop(0, 'rgba(255,255,255,1)');
+            gradient.addColorStop(0.2, 'rgba(255,255,255,0.8)');
+            gradient.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 32, 32);
+            return new THREE.CanvasTexture(canvas);
+        }
+        const particleTexture = createParticleTexture();
+
+        // Inti Galaksi Merah
+        const coreGeo = new THREE.BufferGeometry();
+        const coreCount = 8000;
+        const corePos = new Float32Array(coreCount * 3);
+        const coreRadius = 30;
+
+        for (let i = 0; i < coreCount; i++) {
+            const u = Math.random();
+            const v = Math.random();
+            const theta = u * 2.0 * Math.PI;
+            const phi = Math.acos(2.0 * v - 1.0);
+            const r = coreRadius * Math.cbrt(Math.random());
+            
+            corePos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+            corePos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+            corePos[i * 3 + 2] = r * Math.cos(phi);
+        }
+        coreGeo.setAttribute('position', new THREE.BufferAttribute(corePos, 3));
+        const coreMat = new THREE.PointsMaterial({
+            color: 0xff0033, size: 1.5, map: particleTexture, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false
+        });
+        const coreMesh = new THREE.Points(coreGeo, coreMat);
+        scene.add(coreMesh);
+
+        // Cincin Galaksi
+        const ringGeo = new THREE.BufferGeometry();
+        const ringCount = 15000;
+        const ringPos = new Float32Array(ringCount * 3);
+        const ringColors = new Float32Array(ringCount * 3);
+        
+        const colorRed = new THREE.Color(0xff3344);
+        const colorWhite = new THREE.Color(0xffffff);
+
+        for (let i = 0; i < ringCount; i++) {
+            const radius = 35 + Math.random() * 200;
+            const theta = Math.random() * 2 * Math.PI;
+            const yOffset = (Math.random() - 0.5) * (Math.random() * 20); 
+
+            ringPos[i * 3] = radius * Math.cos(theta);
+            ringPos[i * 3 + 1] = yOffset;
+            ringPos[i * 3 + 2] = radius * Math.sin(theta);
+
+            const isRed = Math.random() > 0.7;
+            const mixedColor = isRed ? colorRed : colorWhite;
+            ringColors[i * 3] = mixedColor.r;
+            ringColors[i * 3 + 1] = mixedColor.g;
+            ringColors[i * 3 + 2] = mixedColor.b;
+        }
+        ringGeo.setAttribute('position', new THREE.BufferAttribute(ringPos, 3));
+        ringGeo.setAttribute('color', new THREE.BufferAttribute(ringColors, 3));
+        const ringMat = new THREE.PointsMaterial({
+            size: 1.2, vertexColors: true, map: particleTexture, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false
+        });
+        const ringMesh = new THREE.Points(ringGeo, ringMat);
+        scene.add(ringMesh);
+
+
+        /* ========================================================================
+        PENGATURAN FOTO KENANGAN (/assets/img/)
+        ========================================================================
+        */
+        const imageUrls = [];
+        const totalPhotos = 30; // Sesuaikan dengan jumlah foto yang Anda punya
+
+        // Menambahkan daftar path foto lokal (sesuai folder yang Anda inginkan)
+        for(let i = 1; i <= totalPhotos; i++) {
+            imageUrls.push(`/assets/img/foto${i}.jpg`);
+        }
+
+        const manager = new THREE.LoadingManager();
+        const textureLoader = new THREE.TextureLoader(manager);
+        const photoOrbits = []; 
+
+        manager.onLoad = function () {
+            const loadingScreen = document.getElementById('loading-screen');
+            loadingScreen.style.opacity = '0';
+            setTimeout(() => { loadingScreen.style.display = 'none'; }, 1000);
+        };
+
+        manager.onProgress = function (url, itemsLoaded, itemsTotal) {
+            const percent = Math.round((itemsLoaded / itemsTotal) * 100);
+            document.getElementById('loading-text').innerText = `Mempersiapkan Kenangan... ${percent}%`;
+        };
+
+        // Fungsi untuk membuat Mesh Foto
+        function createPhotoMesh(texture, index) {
+            texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+            const imgMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+            const imgSize = 8 + Math.random() * 4; 
+            const imgGeo = new THREE.PlaneGeometry(imgSize, imgSize);
+            const imgMesh = new THREE.Mesh(imgGeo, imgMat);
+
+            const frameMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+            const frameGeo = new THREE.PlaneGeometry(imgSize + 0.6, imgSize + 0.6);
+            const frameMesh = new THREE.Mesh(frameGeo, frameMat);
+            frameMesh.position.z = -0.1; 
+
+            const photoGroup = new THREE.Group();
+            photoGroup.add(imgMesh);
+            photoGroup.add(frameMesh);
+
+            // Pengaturan posisi: Tersebar dari dalam galaksi hingga keluar berlapis-lapis
+            const radius = 40 + (index * 4) + (Math.random() * 20); 
+            const theta = Math.random() * Math.PI * 2; 
+            const yPos = (Math.random() - 0.5) * 30; 
+            
+            photoGroup.position.set(radius * Math.cos(theta), yPos, radius * Math.sin(theta));
+            scene.add(photoGroup);
+
+            photoOrbits.push({
+                mesh: photoGroup, radius: radius, angle: theta, y: yPos, speed: 0.0005 + Math.random() * 0.001 
+            });
+        }
+
+        // Proses memuat gambar dengan sistem Fallback (Cadangan)
+        imageUrls.forEach((url, index) => {
+            textureLoader.load(
+                url, 
+                (texture) => {
+                    // Berhasil memuat gambar dari folder lokal
+                    createPhotoMesh(texture, index);
+                },
+                undefined,
+                (err) => {
+                    // JIKA GAGAL (seperti saat melihat pratinjau web ini): 
+                    // Gunakan gambar cadangan dari internet agar sistem tidak error.
+                    textureLoader.load(`https://picsum.photos/id/${index + 100}/300/300`, (fallbackTexture) => {
+                        createPhotoMesh(fallbackTexture, index);
+                    });
+                }
+            );
+        });
+
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update(); 
+
+            coreMesh.rotation.y -= 0.001;
+            ringMesh.rotation.y -= 0.0005;
+
+            photoOrbits.forEach(p => {
+                p.angle -= p.speed; 
+                p.mesh.position.x = p.radius * Math.cos(p.angle);
+                p.mesh.position.z = p.radius * Math.sin(p.angle);
+                
+                // Membuat foto selalu menghadap lurus ke arah kamera
+                p.mesh.quaternion.copy(camera.quaternion);
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
